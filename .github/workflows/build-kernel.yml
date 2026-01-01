@@ -55,23 +55,26 @@ jobs:
             echo "$PWD/aarch64-linux-android-4.9/bin" >> $GITHUB_PATH
             echo "$PWD/arm-linux-androideabi-4.9/bin" >> $GITHUB_PATH
             
-      - name: Install AOSP Clang r416183
+      - name: Setup AOSP Clang (official prebuilts)
         run: |
-          mkdir clang
-          cd clang
-
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-11.0.0_r46/clang-r416183.tar.gz
-          tar -xf clang-r416183.tar.gz
-
-          echo "$PWD/clang-r416183/bin" >> $GITHUB_PATH
-
+                cd kernel-source
+      
+                git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 --depth=1 clang-prebuilts
+      
+                # Pick a clang version directory (use latest available)
+                CLANG_DIR=$(ls clang-prebuilts | grep clang-r | head -n1)
+      
+                echo "Using Clang dir: $CLANG_DIR"
+      
+                echo "$PWD/clang-prebuilts/$CLANG_DIR/bin" >> $GITHUB_PATH
+                
       - name: Build Kernel (Rosy 4.9)
         run: |
           cd kernel-source
           export PATH=$PATH
 
-          make ARCH=arm64 msm8937-perf_defconfig
-          make ARCH=arm64 olddefconfig
+          make ARCH=arm msm8937-perf_defconfig
+          make ARCH=arm olddefconfig
 
           make -j$(nproc --all) \
             ARCH=arm64 \
