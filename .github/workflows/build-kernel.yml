@@ -199,21 +199,21 @@ EOF
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ksu-next-${{ github.run_number }}
-        name: "KernelSU Next Build #${{ github.run_number }}"
+        name: KernelSU Next Build #${{ github.run_number }}
         body: |
           KernelSU Next (stable) build for Xiaomi Rosy (Redmi 5)
-          
+
           **Build Details:**
-          - Date: $(date)
+          - Date: ${{ env.BUILD_DATE }}
           - Kernel: Prebuilt Image.gz-dtb
           - KernelSU Next: Stable branch
           - Device: Xiaomi Rosy (Redmi 5)
-          
+
           **Installation:**
           1. Flash via custom recovery (TWRP/OrangeFox)
           2. Reboot to system
           3. Install KernelSU Manager app
-          
+
           **Notes:**
           - Requires custom recovery
           - Backup your current kernel before flashing
