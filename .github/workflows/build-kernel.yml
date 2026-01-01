@@ -34,23 +34,37 @@ jobs:
         cd kernel-source
         git clone https://github.com/KernelSU-Next/KernelSU-Next.git --depth=1 -b stable KernelSU
         echo "KernelSU Next cloned successfully"
-
-    - name: Setup Android Build Environment
+        
+- name: Setup KernelSU Next Toolchains (GCC 4.9 + Clang)
       run: |
-        # Install latest AOSP Clang
-        mkdir -p /opt/toolchains
-        cd /opt/toolchains
-        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r498229b.tar.gz
-        tar -xzf clang-r498229b.tar.gz
-        mv clang-r498229b clang
-        
-        # Get GCC for arm32 compatibility
-        git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9
-        
-        echo "CLANG_BIN=/opt/toolchains/clang/bin" >> $GITHUB_ENV
-        echo "GCC_BIN=/opt/toolchains/arm-linux-androideabi-4.9/bin" >> $GITHUB_ENV
-        echo "ARCH=arm" >> $GITHUB_ENV
-        echo "SUBARCH=arm" >> $GITHUB_ENV
+        cd kernel-source
+
+        # Fetch KernelSU-Next toolchains
+        git clone https://github.com/KernelSU-Next/toolchains.git --depth=1 toolchains
+
+        # Toolchain paths
+        export KSU_TC=$PWD/toolchains
+        export ARM64_GCC=$KSU_TC/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
+        export ARM32_GCC=$KSU_TC/gcc/linux-x86/arm/arm-linux-gnueabi-4.9/bin
+        export CLANG_BIN=$KSU_TC/clang/bin
+
+        # Export to GitHub environment
+        echo "PATH=$CLANG_BIN:$ARM64_GCC:$ARM32_GCC:\$PATH" >> $GITHUB_ENV
+        echo "CLANG_TRIPLE=aarch64-linux-android-" >> $GITHUB_ENV
+        echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
+        echo "CROSS_COMPILE_ARM32=arm-linux-gnueabi-" >> $GITHUB_ENV
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "SUBARCH=arm64" >> $GITHUB_ENV
+
+        # Sanity checks
+        echo "Clang version:"
+        clang --version | head -n1
+
+        echo "ARM64 GCC:"
+        aarch64-linux-android-gcc --version | head -n1
+
+        echo "ARM32 GCC:"
+        arm-linux-gnueabi-gcc --version | head -n1
 
     - name: Configure Kernel for KSU Next
       env:
@@ -96,8 +110,9 @@ jobs:
         
         # Build the kernel
         echo "Building kernel..."
-        make ARCH=arm CC=clang CLANG_TRIPLE=arm-linux-gnu- \
-             CROSS_COMPILE=arm-linux-androideabi- \
+        make ARCH=arm64 CC=clang \
+             CROSS_COMPILE=${{ env.CROSS_COMPILE }} \
+             CROSS_COMPILE_ARM32=${{ env.CROSS_COMPILE_ARM32 }} \
              -j$(nproc --all) Image.gz-dtb
         
         # Build KernelSU Next module
