@@ -25,8 +25,6 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
 
-    - name: Integrate KernelSU-Next
-      shell: bash
     - name: Manual KernelSU-Next Integration
       run: |
         git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git -b next ksu-next
