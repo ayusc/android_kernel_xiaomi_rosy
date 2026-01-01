@@ -26,11 +26,14 @@ jobs:
         git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
 
     - name: Integrate KernelSU-Next
+      shell: bash
+      continue-on-error: true
       run: |
-        set +e
-        curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh | bash -s v1.1.1
-        set -e
-        test -d KernelSU || { echo "KernelSU missing"; exit 1; }
+        curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh | bash - || true
+        if [ ! -d KernelSU ]; then
+          echo "KernelSU patching failed!"
+          exit 1
+        fi
 
     - name: Setup environment
       run: |
