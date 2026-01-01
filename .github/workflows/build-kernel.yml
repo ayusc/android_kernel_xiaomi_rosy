@@ -1,4 +1,4 @@
-name: Build Redmi 5 Kernel with KSU
+name: Redmi 5 Kernel 4.9 + KernelSU-Next
 
 on:
   workflow_dispatch:
@@ -10,33 +10,64 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout repo
+    - name: Checkout source
       uses: actions/checkout@v4
 
-    - name: Make build script executable
+    - name: Install dependencies
       run: |
-        chmod +x build_scripts/build_4.9.sh
+        sudo apt update
+        sudo apt install -y \
+          bc bison build-essential flex git \
+          libssl-dev libncurses-dev \
+          gcc-arm-linux-gnueabi
 
-    - name: Run kernel build script + KernelSU-Next
+    - name: Fetch Proton Clang 11
       run: |
-        # Integrate KernelSU-Next first
-        curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh \
-          | bash -
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
 
-        # Run the distro’s build helper
-        ./build_scripts/build_4.9.sh
-      env:
-        OUT_DIR: out
-        ARCH: arm
+    - name: Integrate KernelSU-Next
+      run: |
+        curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh | bash -
+        test -d KernelSU || exit 1
 
-    - name: Collect kernel build artifacts
+    - name: Setup environment
+      run: |
+        echo "ARCH=arm" >> $GITHUB_ENV
+        echo "SUBARCH=arm" >> $GITHUB_ENV
+        echo "OUT_DIR=out" >> $GITHUB_ENV
+        echo "PATH=$HOME/proton-clang/bin:$PATH" >> $GITHUB_ENV
+
+    - name: Configure kernel
+      run: |
+        make O=$OUT_DIR msm8937_defconfig
+
+    - name: Enable KernelSU
+      run: |
+        scripts/config --file out/.config \
+          --enable CONFIG_KERNELSU \
+          --enable CONFIG_KPROBES \
+          --enable CONFIG_HAVE_KPROBES \
+          --enable CONFIG_MODULES \
+          --enable CONFIG_SYSFS \
+          --enable CONFIG_SECURITY_SELINUX
+        make O=out olddefconfig
+
+    - name: Build kernel
+      run: |
+        make -j$(nproc) O=$OUT_DIR \
+          ARCH=arm \
+          CC=clang \
+          CLANG_TRIPLE=arm-linux-gnueabi- \
+          CROSS_COMPILE=arm-linux-gnueabi-
+
+    - name: Package artifacts
       run: |
         mkdir -p artifacts
         cp out/arch/arm/boot/zImage artifacts/ || true
         cp out/arch/arm/boot/Image.gz-dtb artifacts/ || true
-        cp out/.config artifacts/kernel_config || true
+        cp out/.config artifacts/config
 
-    - name: Upload artifacts
+    - name: Upload kernel
       uses: actions/upload-artifact@v4
       with:
         name: rosy-kernel-ksu
