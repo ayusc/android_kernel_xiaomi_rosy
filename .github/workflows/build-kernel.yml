@@ -48,16 +48,24 @@ jobs:
         run: |
           mkdir -p /opt/prebuilts
           cd /opt/prebuilts
-  
+      
           # Clone ARM64 toolchain
           git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1
-  
+      
           # Clone ARM32 toolchain
           git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 --depth=1
-  
-          # Store absolute paths in environment variables
-          echo "GCC_ARM64_PATH=/opt/prebuilts/aarch64-linux-android-4.9/bin" >> $GITHUB_ENV
-          echo "GCC_ARM32_PATH=/opt/prebuilts/arm-linux-androideabi-4.9/bin" >> $GITHUB_ENV
+      
+          # Find the actual bin directories
+          ARM64_BIN_DIR=$(find /opt/prebuilts/aarch64-linux-android-4.9 -name "*gcc" -type f | head -1 | xargs dirname)
+          ARM32_BIN_DIR=$(find /opt/prebuilts/arm-linux-androideabi-4.9 -name "*gcc" -type f | head -1 | xargs dirname)
+          
+          echo "ARM64_BIN_DIR=$ARM64_BIN_DIR" >> $GITHUB_ENV
+          echo "ARM32_BIN_DIR=$ARM32_BIN_DIR" >> $GITHUB_ENV
+          
+          echo "=== Found directories ==="
+          echo "ARM64: $ARM64_BIN_DIR"
+          echo "ARM32: $ARM32_BIN_DIR"
+          ls -la $ARM64_BIN_DIR/ | head -10
             
       - name: Setup AOSP Clang
         run: |
@@ -89,46 +97,58 @@ jobs:
         run: |
           cd kernel-source
           
-          # Set up PATH with all toolchains (CRITICAL FIX)
-          export PATH=$CLANG_PATH:$GCC_ARM64_PATH:$GCC_ARM32_PATH:$PATH
+          # Debug: Show what's in the toolchain directories
+          echo "=== Debug: Toolchain directories ==="
+          find /opt/prebuilts -type f -name "*gcc*" | head -20
+          echo ""
           
-          # Set all environment variables explicitly
+          # Find toolchains dynamically
+          ARM64_GCC=$(find /opt/prebuilts -name "aarch64-linux-android-gcc" -type f | head -1)
+          ARM32_GCC=$(find /opt/prebuilts -name "arm-linux-androideabi-gcc" -type f | head -1)
+          AOSP_CLANG=$(find /opt/clang-prebuilts -name "clang" -type f | head -1)
+          
+          echo "Found:"
+          echo "ARM64 GCC: $ARM64_GCC"
+          echo "ARM32 GCC: $ARM32_GCC"
+          echo "AOSP Clang: $AOSP_CLANG"
+          
+          if [ -z "$ARM64_GCC" ]; then
+            echo "ERROR: ARM64 GCC not found!"
+            exit 1
+          fi
+          
+          if [ -z "$AOSP_CLANG" ]; then
+            echo "ERROR: AOSP Clang not found!"
+            exit 1
+          fi
+          
+          # Get directory paths
+          ARM64_DIR=$(dirname "$ARM64_GCC")
+          ARM32_DIR=$(dirname "$ARM32_GCC")
+          CLANG_DIR=$(dirname "$AOSP_CLANG")
+          
+          # Set up PATH
+          export PATH=$CLANG_DIR:$ARM64_DIR:$ARM32_DIR:$PATH
+          
+          echo "=== Final PATH ==="
+          echo $PATH
+          echo ""
+          echo "=== Checking executables ==="
+          which clang || echo "Clang not found"
+          which aarch64-linux-android-gcc || echo "ARM64 GCC not found"
+          which arm-linux-androideabi-gcc || echo "ARM32 GCC not found"
+          
+          # Set environment variables
           export ARCH=arm64
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-android-
           export CROSS_COMPILE_ARM32=arm-linux-androideabi-
           export CC=clang
-          
-          echo "=== Final PATH in build step ==="
-          echo $PATH
-          echo ""
-          echo "=== Checking executables ==="
-          which clang
-          which aarch64-linux-android-gcc
-          which arm-linux-androideabi-gcc
-          echo ""
-          echo "=== Versions ==="
-          clang --version | head -5
-          aarch64-linux-android-gcc --version | head -5
           
           # Build kernel
           make msm8937-perf_defconfig
           make olddefconfig
           make -j$(nproc --all) Image.gz-dtb
-
-      - name: Build KernelSU Next Module
-        run: |
-          cd kernel-source/KernelSU/kernel
-          
-          # Set up PATH again (each step is isolated)
-          export PATH=$CLANG_PATH:$GCC_ARM64_PATH:$GCC_ARM32_PATH:$PATH
-          export ARCH=arm64
-          export SUBARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-android-
-          export CROSS_COMPILE_ARM32=arm-linux-androideabi-
-          export CC=clang
-          
-          make -j$(nproc --all)
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
