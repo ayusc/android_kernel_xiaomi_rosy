@@ -20,10 +20,18 @@ jobs:
           bc bison build-essential flex git \
           libssl-dev libncurses-dev \
           gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+          
+    - name: Cache Proton Clang
+      uses: actions/cache@v4
+      with:
+        path: ~/proton-clang
+        key: proton-clang-11
 
-    - name: Fetch Proton Clang 11
+    - name: Fetch Proton Clang
       run: |
-        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
+        if [ ! -d "$HOME/proton-clang" ]; then
+          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
+        fi
 
         
     - name: Cleanup old KernelSU artifacts
@@ -69,6 +77,25 @@ jobs:
           --enable CONFIG_SYSFS \
           --enable CONFIG_SECURITY_SELINUX
         make O=out olddefconfig
+        
+    - name: Disable Spectre BHB mitigation
+      run: |
+        scripts/config --file out/.config \
+          --disable CONFIG_ARM64_SPECTRE_BHB
+        make O=out olddefconfig
+        
+    - name: Stub broken Spectre BHB symbols
+      run: |
+        cat << 'EOF' > arch/arm64/kernel/spectre_bhb_stub.c
+        #include <linux/kernel.h>
+    
+        void spectre_bhb_enable_mitigation(void) {}
+        void spectre_bhb_patch_loop_iter(void) {}
+        EXPORT_SYMBOL_GPL(spectre_bhb_enable_mitigation);
+        EXPORT_SYMBOL_GPL(spectre_bhb_patch_loop_iter);
+        EOF
+    
+        echo 'obj-y += spectre_bhb_stub.o' >> arch/arm64/kernel/Makefile
 
     - name: Build kernel
       run: |
