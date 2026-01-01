@@ -11,157 +11,75 @@ jobs:
     container: ubuntu:22.04
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        ref: kernelsu-integration
-        path: kernel-source
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: kernelsu-integration
+          path: kernel-source
 
-    - name: Install build dependencies
-      run: |
-        apt-get update
-        apt-get install -y \
-          bc bison build-essential ccache curl flex g++-multilib gcc-multilib \
-          git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev \
-          lib32z1-dev libelf-dev liblz4-tool libncurses5 libncurses5-dev \
-          libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush \
-          rsync schedtool squashfs-tools xsltproc zip zlib1g-dev \
-          python3 python3-pip python-is-python3 wget tar
-        pip3 install pycrypto
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            bc bison build-essential ccache curl flex g++-multilib gcc-multilib \
+            git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev \
+            lib32z1-dev libelf-dev liblz4-tool libncurses5 libncurses5-dev \
+            libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush \
+            rsync schedtool squashfs-tools xsltproc zip zlib1g-dev \
+            python3 python3-pip python-is-python3 wget tar
+          pip3 install pycrypto
 
-    - name: Clone KernelSU Next
-      run: |
-        cd kernel-source
-        git clone https://github.com/KernelSU-Next/KernelSU-Next.git --depth=1 -b stable KernelSU
-        echo "KernelSU Next cloned successfully"
-        
-    - name: Setup KernelSU Next Toolchains (GCC 4.9 + Clang)
-          run: |
-            cd kernel-source
-    
-            # Fetch KernelSU-Next toolchains
-            git clone https://github.com/KernelSU-Next/toolchains.git --depth=1 toolchains
-    
-            # Toolchain paths
-            export KSU_TC=$PWD/toolchains
-            export ARM64_GCC=$KSU_TC/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
-            export ARM32_GCC=$KSU_TC/gcc/linux-x86/arm/arm-linux-gnueabi-4.9/bin
-            export CLANG_BIN=$KSU_TC/clang/bin
-    
-            # Export to GitHub environment
-            echo "PATH=$CLANG_BIN:$ARM64_GCC:$ARM32_GCC:\$PATH" >> $GITHUB_ENV
-            echo "CLANG_TRIPLE=aarch64-linux-android-" >> $GITHUB_ENV
-            echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
-            echo "CROSS_COMPILE_ARM32=arm-linux-gnueabi-" >> $GITHUB_ENV
-            echo "ARCH=arm64" >> $GITHUB_ENV
-            echo "SUBARCH=arm64" >> $GITHUB_ENV
-    
-            # Sanity checks
-            echo "Clang version:"
-            clang --version | head -n1
-    
-            echo "ARM64 GCC:"
-            aarch64-linux-android-gcc --version | head -n1
-    
-            echo "ARM32 GCC:"
-            arm-linux-gnueabi-gcc --version | head -n1
+      - name: Clone KernelSU Next
+        run: |
+          cd kernel-source
+          git clone https://github.com/KernelSU-Next/KernelSU-Next.git --depth=1 -b stable KernelSU
 
-    - name: Configure Kernel for KSU Next
-      env:
-        CLANG_BIN: ${{ env.CLANG_BIN }}
-        GCC_BIN: ${{ env.GCC_BIN }}
-        ARCH: ${{ env.ARCH }}
-      run: |
-        cd kernel-source
-        
-        # Set environment variables for toolchains
-        export PATH="$CLANG_BIN:$GCC_BIN:$PATH"
-        
-        # Make defconfig
-        make ARCH=arm rosy_perf_defconfig
-        
-        # Enable required options for KernelSU Next
-        ./scripts/config --file .config \
-          -e KPROBES \
-          -e KPROBES_ON_FTRACE \
-          -e HAVE_KPROBES \
-          -e KPROBE_EVENTS \
-          -e ARCH_SUPPORTS_KPROBES \
-          -e MODULES \
-          -e MODULE_UNLOAD
-        
-        # Make olddefconfig to resolve dependencies
-        make ARCH=arm olddefconfig
-        
-        echo "Kernel configuration updated for KernelSU Next"
-        echo "Checking important config options:"
-        grep -E "KPROBES|MODULES" .config || echo "Options not found"
+      - name: Setup KernelSU Next Toolchains (GCC 4.9 + Clang)
+        run: |
+          cd kernel-source
+          git clone https://github.com/KernelSU-Next/toolchains.git --depth=1 toolchains
 
-    - name: Build Kernel with KSU Next
-      env:
-        CLANG_BIN: ${{ env.CLANG_BIN }}
-        GCC_BIN: ${{ env.GCC_BIN }}
-        ARCH: ${{ env.ARCH }}
-      run: |
-        cd kernel-source
-        
-        # Set environment variables
-        export PATH="$CLANG_BIN:$GCC_BIN:$PATH"
-        
-        # Build the kernel
-        echo "Building kernel..."
-        make ARCH=arm64 CC=clang \
-             CROSS_COMPILE=${{ env.CROSS_COMPILE }} \
-             CROSS_COMPILE_ARM32=${{ env.CROSS_COMPILE_ARM32 }} \
-             -j$(nproc --all) Image.gz-dtb
-        
-        # Build KernelSU Next module
-        echo "Building KernelSU Next module..."
-        cd KernelSU/kernel
-        make ARCH=arm CC=clang CLANG_TRIPLE=arm-linux-gnu- \
-             CROSS_COMPILE=arm-linux-androideabi- \
-             -j$(nproc --all)
-        
-        # Check build results
-        if [ -f ../../arch/arm/boot/Image.gz-dtb ] && [ -f kernel_su.ko ]; then
-          echo "✅ Kernel and KernelSU Next built successfully!"
-          echo "Kernel size: $(stat -c%s ../../arch/arm/boot/Image.gz-dtb) bytes"
-          echo "KSU module size: $(stat -c%s kernel_su.ko) bytes"
-        else
-          echo "❌ Build failed!"
-          exit 1
-        fi
+          export KSU_TC=$PWD/toolchains
+          export ARM64_GCC=$KSU_TC/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
+          export ARM32_GCC=$KSU_TC/gcc/linux-x86/arm/arm-linux-gnueabi-4.9/bin
+          export CLANG_BIN=$KSU_TC/clang/bin
 
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ksu-next-build-${{ github.run_number }}
-        path: |
-          kernel-source/arch/arm/boot/Image.gz-dtb
-          kernel-ksu-next-rosy.zip
-          kernel-source/KernelSU/kernel/kernel_su.ko
+          echo "PATH=$CLANG_BIN:$ARM64_GCC:$ARM32_GCC:\$PATH" >> $GITHUB_ENV
+          echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE_ARM32=arm-linux-gnueabi-" >> $GITHUB_ENV
+          echo "ARCH=arm64" >> $GITHUB_ENV
+          echo "SUBARCH=arm64" >> $GITHUB_ENV
 
-    - name: Create Release
-      if: success()
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ksu-next-${{ github.run_number }}
-        name: KernelSU Next Build #${{ github.run_number }}
-        body: |
-          KernelSU Next (stable) build for Xiaomi Rosy (Redmi 5)
+      - name: Build Kernel (Rosy 4.9)
+        run: |
+          cd kernel-source
+          export PATH=$PATH
 
-          **Build Details:**
-          - Date: ${{ env.BUILD_DATE }}
-          - Kernel: Prebuilt Image.gz-dtb
-          - KernelSU Next: Stable branch
-          - Device: Xiaomi Rosy (Redmi 5)
+          make ARCH=arm64 rosy_perf_defconfig
+          make ARCH=arm64 olddefconfig
 
-          **Installation:**
-          1. Flash via custom recovery (TWRP/OrangeFox)
-          2. Reboot to system
-          3. Install KernelSU Manager app
+          make -j$(nproc --all) \
+            ARCH=arm64 \
+            CC=clang \
+            CROSS_COMPILE=${CROSS_COMPILE} \
+            CROSS_COMPILE_ARM32=${CROSS_COMPILE_ARM32} \
+            Image.gz-dtb
 
-          **Notes:**
-          - Requires custom recovery
-          - Backup your current kernel before flashing
-        files: kernel-ksu-next-rosy.zip
+      - name: Build KernelSU Next Module
+        run: |
+          cd kernel-source/KernelSU/kernel
+          export PATH=$PATH
+
+          make -j$(nproc --all) \
+            ARCH=arm64 \
+            CC=clang \
+            CROSS_COMPILE=${CROSS_COMPILE} \
+            CROSS_COMPILE_ARM32=${CROSS_COMPILE_ARM32}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ksu-next-build-${{ github.run_number }}
+          path: |
+            kernel-source/arch/arm64/boot/Image.gz-dtb
+            kernel-source/KernelSU/kernel/kernel_su.ko
