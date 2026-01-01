@@ -54,6 +54,16 @@ jobs:
             # Append toolchains to PATH correctly
             echo "$PWD/aarch64-linux-android-4.9/bin" >> $GITHUB_PATH
             echo "$PWD/arm-linux-androideabi-4.9/bin" >> $GITHUB_PATH
+            
+      - name: Install AOSP Clang r416183
+        run: |
+          mkdir clang
+          cd clang
+
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-11.0.0_r46/clang-r416183.tar.gz
+          tar -xf clang-r416183.tar.gz
+
+          echo "$PWD/clang-r416183/bin" >> $GITHUB_PATH
 
       - name: Build Kernel (Rosy 4.9)
         run: |
