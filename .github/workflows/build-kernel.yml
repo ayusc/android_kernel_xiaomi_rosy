@@ -30,13 +30,13 @@ jobs:
         git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git -b stable ksu-next
 
         # Copy driver
-        cp -r ksu-next/kernel/KernelSU drivers/
+        cp -r ksu-next/kernel/ drivers/
 
         # Inject Makefile
         echo 'obj-$(CONFIG_KERNELSU) += KernelSU/' >> drivers/Makefile
 
         # Inject Kconfig
-        sed -i '/menu "Device Drivers"/a source "drivers/KernelSU/Kconfig"' drivers/Kconfig
+        sed -i '/menu "Device Drivers"/a source "drivers/Kconfig"' drivers/Kconfig
 
     - name: Setup environment
       run: |
