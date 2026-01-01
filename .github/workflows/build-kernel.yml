@@ -34,19 +34,21 @@ jobs:
           cd kernel-source
           git clone https://github.com/KernelSU-Next/KernelSU-Next.git --depth=1 -b stable KernelSU
 
-      - name: Setup KernelSU Next Toolchains (GCC 4.9 + Clang)
-        run: |
-          cd kernel-source
-          git clone https://github.com/KernelSU-Next/toolchains.git --depth=1 toolchains
+    - name: Setup Google Toolchains (GCC 4.9 + Clang)
+      run: |
+          mkdir prebuilts
+          cd prebuilts
 
-          export KSU_TC=$PWD/toolchains
-          export ARM64_GCC=$KSU_TC/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin
-          export ARM32_GCC=$KSU_TC/gcc/linux-x86/arm/arm-linux-gnueabi-4.9/bin
-          export CLANG_BIN=$KSU_TC/clang/bin
+          # Clone ARM64 toolchain
+          git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 --depth=1
 
-          echo "PATH=$CLANG_BIN:$ARM64_GCC:$ARM32_GCC:\$PATH" >> $GITHUB_ENV
+          # Clone ARM32 toolchain
+          git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 --depth=1
+
+          # Add to PATH
+          echo "$PWD/aarch64-linux-android-4.9/bin:$PWD/arm-linux-androideabi-4.9/bin:\$PATH" >> $GITHUB_ENV
           echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
-          echo "CROSS_COMPILE_ARM32=arm-linux-gnueabi-" >> $GITHUB_ENV
+          echo "CROSS_COMPILE_ARM32=arm-linux-androideabi-" >> $GITHUB_ENV
           echo "ARCH=arm64" >> $GITHUB_ENV
           echo "SUBARCH=arm64" >> $GITHUB_ENV
 
