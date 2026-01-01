@@ -47,12 +47,16 @@ jobs:
         # Get GCC for arm32 compatibility
         git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9
         
-        export ARCH="arm"
-        export SUBARCH="arm"
         echo "CLANG_BIN=/opt/toolchains/clang/bin" >> $GITHUB_ENV
         echo "GCC_BIN=/opt/toolchains/arm-linux-androideabi-4.9/bin" >> $GITHUB_ENV
+        echo "ARCH=arm" >> $GITHUB_ENV
+        echo "SUBARCH=arm" >> $GITHUB_ENV
 
     - name: Configure Kernel for KSU Next
+      env:
+        CLANG_BIN: ${{ env.CLANG_BIN }}
+        GCC_BIN: ${{ env.GCC_BIN }}
+        ARCH: ${{ env.ARCH }}
       run: |
         cd kernel-source
         
@@ -80,6 +84,10 @@ jobs:
         grep -E "KPROBES|MODULES" .config || echo "Options not found"
 
     - name: Build Kernel with KSU Next
+      env:
+        CLANG_BIN: ${{ env.CLANG_BIN }}
+        GCC_BIN: ${{ env.GCC_BIN }}
+        ARCH: ${{ env.ARCH }}
       run: |
         cd kernel-source
         
@@ -119,7 +127,7 @@ jobs:
         cp ../kernel-source/arch/arm/boot/Image.gz-dtb .
         
         # Copy KernelSU module
-        mkdir -p modules/vendor/lib/modules
+        mkdir -p modules
         cp ../kernel-source/KernelSU/kernel/kernel_su.ko modules/
         
         # Configure anykernel.sh for device
