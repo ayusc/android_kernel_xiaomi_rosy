@@ -35,7 +35,7 @@ jobs:
 
     - name: Manual KernelSU-Next Integration
       run: |
-        git clone --depth=1 -b next https://github.com/KernelSU-Next/KernelSU-Next.git ksu-next
+        git clone --depth=1 -b stable https://github.com/KernelSU-Next/KernelSU-Next.git ksu-next
 
         # KernelSU-Next driver lives here
         cp -r ksu-next/kernel drivers/kernelsu
