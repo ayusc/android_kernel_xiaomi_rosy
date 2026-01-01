@@ -1,4 +1,4 @@
-name: Build Redmi 5 Kernel with KernelSU-Next
+name: Build Redmi 5 Kernel with KSU
 
 on:
   workflow_dispatch:
@@ -10,48 +10,33 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout Kernel Source
+    - name: Checkout repo
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 1
 
-    - name: Install Dependencies
+    - name: Make build script executable
       run: |
-        sudo apt update
-        sudo apt install -y \
-          bc build-essential git \
-          clang llvm lld \
-          libssl-dev libncurses-dev \
-          gcc-arm-linux-gnueabi
+        chmod +x build_scripts/build_4.9.sh
 
-    - name: Integrate KernelSU-Next
+    - name: Run kernel build script + KernelSU-Next
       run: |
-        curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh | bash -
+        # Integrate KernelSU-Next first
+        curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh \
+          | bash -
 
-    - name: Setup Environment
-      run: |
-        echo "ARCH=arm" >> $GITHUB_ENV
-        echo "SUBARCH=arm" >> $GITHUB_ENV
-        echo "LLVM=1" >> $GITHUB_ENV
-        echo "CROSS_COMPILE=arm-linux-gnueabi-" >> $GITHUB_ENV
-        echo "OUT_DIR=out" >> $GITHUB_ENV
+        # Run the distro’s build helper
+        ./build_scripts/build_4.9.sh
+      env:
+        OUT_DIR: out
+        ARCH: arm
 
-    - name: Configure Kernel
-      run: |
-        make O=$OUT_DIR msm8937_defconfig
-
-    - name: Build Kernel
-      run: |
-        make -j$(nproc) O=$OUT_DIR
-
-    - name: Prepare Artifacts
+    - name: Collect kernel build artifacts
       run: |
         mkdir -p artifacts
-        cp $OUT_DIR/arch/arm/boot/zImage artifacts/ || true
-        cp $OUT_DIR/arch/arm/boot/Image.gz-dtb artifacts/ || true
-        cp $OUT_DIR/.config artifacts/kernel_config || true
+        cp out/arch/arm/boot/zImage artifacts/ || true
+        cp out/arch/arm/boot/Image.gz-dtb artifacts/ || true
+        cp out/.config artifacts/kernel_config || true
 
-    - name: Upload Kernel Artifacts
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: rosy-kernel-ksu
