@@ -60,7 +60,7 @@ jobs:
           cd kernel-source
           export PATH=$PATH
 
-          make ARCH=arm64 rosy_perf_defconfig
+          make ARCH=arm64 msm8937-perf_defconfig
           make ARCH=arm64 olddefconfig
 
           make -j$(nproc --all) \
