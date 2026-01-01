@@ -1,4 +1,4 @@
-name: Redmi 5 Kernel 4.9 + KernelSU-Next
+name: Redmi 5 ARM64 Kernel 4.9 + KernelSU-Next
 
 on:
   workflow_dispatch:
@@ -19,7 +19,7 @@ jobs:
         sudo apt install -y \
           bc bison build-essential flex git \
           libssl-dev libncurses-dev \
-          gcc-arm-linux-gnueabi
+          gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
     - name: Fetch Proton Clang 11
       run: |
@@ -27,19 +27,21 @@ jobs:
 
     - name: Integrate KernelSU-Next
       run: |
+        set +e
         curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh | bash -
-        test -d KernelSU || exit 1
+        set -e
+        test -d KernelSU || { echo "KernelSU missing"; exit 1; }
 
     - name: Setup environment
       run: |
-        echo "ARCH=arm" >> $GITHUB_ENV
-        echo "SUBARCH=arm" >> $GITHUB_ENV
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "SUBARCH=arm64" >> $GITHUB_ENV
         echo "OUT_DIR=out" >> $GITHUB_ENV
         echo "PATH=$HOME/proton-clang/bin:$PATH" >> $GITHUB_ENV
 
     - name: Configure kernel
       run: |
-        make O=$OUT_DIR msm8937_defconfig
+        make O=$OUT_DIR rosy_defconfig
 
     - name: Enable KernelSU
       run: |
@@ -55,20 +57,20 @@ jobs:
     - name: Build kernel
       run: |
         make -j$(nproc) O=$OUT_DIR \
-          ARCH=arm \
+          ARCH=arm64 \
           CC=clang \
-          CLANG_TRIPLE=arm-linux-gnueabi- \
-          CROSS_COMPILE=arm-linux-gnueabi-
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
     - name: Package artifacts
       run: |
         mkdir -p artifacts
-        cp out/arch/arm/boot/zImage artifacts/ || true
-        cp out/arch/arm/boot/Image.gz-dtb artifacts/ || true
+        cp out/arch/arm64/boot/Image.gz-dtb artifacts/ || true
         cp out/.config artifacts/config
 
     - name: Upload kernel
       uses: actions/upload-artifact@v4
       with:
-        name: rosy-kernel-ksu
+        name: rosy-kernel-ksu-arm64
         path: artifacts
