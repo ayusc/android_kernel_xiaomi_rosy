@@ -57,7 +57,7 @@ jobs:
 
     - name: Configure kernel
       run: |
-        make O=$OUT_DIR rosy_defconfig
+        make O=$OUT_DIR msm8973-perf_defconfig
 
     - name: Enable KernelSU
       run: |
