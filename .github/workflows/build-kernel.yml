@@ -46,11 +46,14 @@ jobs:
             git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 --depth=1
   
             # Add to PATH
-            echo "$PWD/aarch64-linux-android-4.9/bin:$PWD/arm-linux-androideabi-4.9/bin:\$PATH" >> $GITHUB_ENV
             echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
             echo "CROSS_COMPILE_ARM32=arm-linux-androideabi-" >> $GITHUB_ENV
             echo "ARCH=arm64" >> $GITHUB_ENV
             echo "SUBARCH=arm64" >> $GITHUB_ENV
+
+            # Append toolchains to PATH correctly
+            echo "$PWD/aarch64-linux-android-4.9/bin" >> $GITHUB_PATH
+            echo "$PWD/arm-linux-androideabi-4.9/bin" >> $GITHUB_PATH
 
       - name: Build Kernel (Rosy 4.9)
         run: |
