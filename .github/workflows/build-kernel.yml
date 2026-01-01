@@ -11,6 +11,16 @@ jobs:
     container: ubuntu:22.04
 
     steps:
+      - name: Free disk space
+        run: |
+            df -h
+            sudo rm -rf /usr/share/dotnet
+            sudo rm -rf /opt/ghc
+            sudo rm -rf /usr/local/lib/android
+            sudo rm -rf /usr/local/.ghcup
+            sudo apt-get clean
+            df -h
+          
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -59,22 +69,21 @@ jobs:
         run: |
                 cd kernel-source
       
-                git clone https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 --depth=1 clang-prebuilts
+                git clone --depth=1 --filter=blob:none --sparse https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 clang-prebuilts
+
+                cd clang-prebuilts
+                git sparse-checkout set clang-r510928
+
+                echo "$PWD/clang-r510928/bin" >> $GITHUB_PATH
       
-                # Pick a clang version directory (use latest available)
-                CLANG_DIR=$(ls clang-prebuilts | grep clang-r | head -n1)
-      
-                echo "Using Clang dir: $CLANG_DIR"
-      
-                echo "$PWD/clang-prebuilts/$CLANG_DIR/bin" >> $GITHUB_PATH
-                
+                  
       - name: Build Kernel (Rosy 4.9)
         run: |
           cd kernel-source
           export PATH=$PATH
 
-          make ARCH=arm msm8937-perf_defconfig
-          make ARCH=arm olddefconfig
+          make ARCH=arm64 msm8937-perf_defconfig
+          make ARCH=arm64 olddefconfig
 
           make -j$(nproc --all) \
             ARCH=arm64 \
@@ -86,7 +95,6 @@ jobs:
       - name: Build KernelSU Next Module
         run: |
           cd kernel-source/KernelSU/kernel
-          export PATH=$PATH
 
           make -j$(nproc --all) \
             ARCH=arm64 \
