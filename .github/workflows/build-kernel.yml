@@ -25,18 +25,28 @@ jobs:
       run: |
         git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
 
+        
+    - name: Cleanup old KernelSU artifacts
+      run: |
+        sed -i '/kernelsu\/Kconfig/d' drivers/Kconfig
+        sed -i '/kernelsu\//d' drivers/Makefile
+        rm -rf drivers/kernelsu
+
+
     - name: Manual KernelSU-Next Integration
       run: |
-        git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git -b stable ksu-next
+        git clone --depth=1 -b next https://github.com/KernelSU-Next/KernelSU-Next.git ksu-next
 
-        # Copy driver
-        cp -r ksu-next/kernel/ drivers/
+        # KernelSU-Next driver lives here
+        cp -r ksu-next/kernel drivers/kernelsu
 
-        # Inject Makefile
-        echo 'obj-$(CONFIG_KERNELSU) += KernelSU/' >> drivers/Makefile
+        # Add Makefile hook safely
+        grep -q 'kernelsu/' drivers/Makefile || \
+        echo 'obj-$(CONFIG_KERNELSU) += kernelsu/' >> drivers/Makefile
 
-        # Inject Kconfig
-        sed -i '/menu "Device Drivers"/a source "drivers/Kconfig"' drivers/Kconfig
+        # Add Kconfig hook safely
+        grep -q 'drivers/kernelsu/Kconfig' drivers/Kconfig || \
+        sed -i '/menu "Device Drivers"/a source "drivers/kernelsu/Kconfig"' drivers/Kconfig
 
     - name: Setup environment
       run: |
