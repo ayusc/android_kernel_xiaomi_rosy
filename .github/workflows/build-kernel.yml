@@ -27,13 +27,18 @@ jobs:
 
     - name: Integrate KernelSU-Next
       shell: bash
-      continue-on-error: true
+    - name: Manual KernelSU-Next Integration
       run: |
-        curl -LSs https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh | bash - || true
-        if [ ! -d KernelSU ]; then
-          echo "KernelSU patching failed!"
-          exit 1
-        fi
+        git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-Next.git -b next ksu-next
+
+        # Copy driver
+        cp -r ksu-next/kernel/KernelSU drivers/
+
+        # Inject Makefile
+        echo 'obj-$(CONFIG_KERNELSU) += KernelSU/' >> drivers/Makefile
+
+        # Inject Kconfig
+        sed -i '/menu "Device Drivers"/a source "drivers/KernelSU/Kconfig"' drivers/Kconfig
 
     - name: Setup environment
       run: |
