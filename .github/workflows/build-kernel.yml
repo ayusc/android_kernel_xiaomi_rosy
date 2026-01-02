@@ -87,16 +87,16 @@ jobs:
         grep -q spectre_bhb_stub arch/arm64/kernel/Makefile || \
           echo 'obj-y += spectre_bhb_stub.o' >> arch/arm64/kernel/Makefile
 
+    # https://raw.githubusercontent.com/baunilla/android_kernel_xiaomi_rosy/refs/heads/lineage-21.0/init/Kconfig
+    # the flag was set as y which shouldn't be allowed
     - name: Fix kallsyms
-      run: |
-        scripts/config --file $OUT_DIR/.config \
-          --disable CONFIG_KALLSYMS_BASE_RELATIVE \
-          --disable CONFIG_KALLSYMS_RELATIVE_BASE \
-          --disable CONFIG_KALLSYMS_ABSOLUTE_PERCPU
-          
-        sed -i 's/CONFIG_KALLSYMS_BASE_RELATIVE=y/# CONFIG_KALLSYMS_BASE_RELATIVE is not set/' $OUT_DIR/.config
-        sed -i 's/CONFIG_KALLSYMS_RELATIVE_BASE=y/# CONFIG_KALLSYMS_RELATIVE_BASE is not set/' $OUT_DIR/.config
-        make O=$OUT_DIR olddefconfig        
+      run: |        
+        sed -i \
+          's/default !IA64 && !(TILE && 64BIT)/default n/' \
+          init/Kconfig
+        # Sanity check
+        grep -n "config KALLSYMS_BASE_RELATIVE" -A5 init/Kconfig
+
         
     - name: Build kernel 
       run: |
