@@ -1,4 +1,4 @@
-name: Redmi 5 ARM64 Kernel 4.9 + KernelSU-Next
+name: Redmi 5 ARM64 Kernel 4.9 + KernelSU-Next (AnyKernel3)
 
 on:
   workflow_dispatch:
@@ -8,6 +8,11 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
+    env:
+      ARCH: arm64
+      SUBARCH: arm64
+      OUT_DIR: out
 
     steps:
     - name: Checkout source
@@ -19,101 +24,80 @@ jobs:
         sudo apt install -y \
           bc bison build-essential flex git \
           libssl-dev libncurses-dev \
-          gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
-          
-    - name: Cache Proton Clang
-      uses: actions/cache@v4
-      with:
-        path: ~/proton-clang
-        key: proton-clang-11
+          gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+          clang lld llvm \
+          device-tree-compiler \
+          unzip zip cpio
 
     - name: Fetch Proton Clang
       run: |
-        if [ ! -d "$HOME/proton-clang" ]; then
-          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
-        fi
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git $HOME/proton-clang
+        echo "$HOME/proton-clang/bin" >> $GITHUB_PATH
 
-        
     - name: Cleanup old KernelSU artifacts
       run: |
-        sed -i '/kernelsu\/Kconfig/d' drivers/Kconfig
-        sed -i '/kernelsu\//d' drivers/Makefile
+        sed -i '/kernelsu\/Kconfig/d' drivers/Kconfig || true
+        sed -i '/kernelsu\//d' drivers/Makefile || true
         rm -rf drivers/kernelsu
 
-
-    - name: Manual KernelSU-Next Integration
+    - name: Integrate KernelSU-Next
       run: |
         git clone --depth=1 -b stable https://github.com/KernelSU-Next/KernelSU-Next.git ksu-next
-
-        # KernelSU-Next driver lives here
         cp -r ksu-next/kernel drivers/kernelsu
 
-        # Add Makefile hook safely
         grep -q 'kernelsu/' drivers/Makefile || \
-        echo 'obj-$(CONFIG_KERNELSU) += kernelsu/' >> drivers/Makefile
+          echo 'obj-$(CONFIG_KERNELSU) += kernelsu/' >> drivers/Makefile
 
-        # Add Kconfig hook safely
         grep -q 'drivers/kernelsu/Kconfig' drivers/Kconfig || \
-        sed -i '/menu "Device Drivers"/a source "drivers/kernelsu/Kconfig"' drivers/Kconfig
-
-    - name: Setup environment
-      run: |
-        echo "ARCH=arm64" >> $GITHUB_ENV
-        echo "SUBARCH=arm64" >> $GITHUB_ENV
-        echo "OUT_DIR=out" >> $GITHUB_ENV
-        echo "PATH=$HOME/proton-clang/bin:$PATH" >> $GITHUB_ENV
+          sed -i '/menu "Device Drivers"/a source "drivers/kernelsu/Kconfig"' drivers/Kconfig
 
     - name: Configure kernel
       run: |
         make O=$OUT_DIR msm8937-perf_defconfig
 
-    - name: Enable KernelSU
+    - name: Enable KernelSU & required options
       run: |
-        scripts/config --file out/.config \
+        scripts/config --file $OUT_DIR/.config \
           --enable CONFIG_KERNELSU \
           --enable CONFIG_KPROBES \
           --enable CONFIG_HAVE_KPROBES \
           --enable CONFIG_MODULES \
           --enable CONFIG_SYSFS \
           --enable CONFIG_SECURITY_SELINUX
-        make O=out olddefconfig
-        
-    - name: Disable Spectre BHB mitigation
-      run: |
-        scripts/config --file out/.config \
-          --disable CONFIG_ARM64_SPECTRE_BHB
-        make O=out olddefconfig
-        
-    - name: Stub broken Spectre BHB symbols
-      run: |
-        cat << 'EOF' > arch/arm64/kernel/spectre_bhb_stub.c
-        #include <linux/kernel.h>
-    
-        void spectre_bhb_enable_mitigation(void) {}
-        void spectre_bhb_patch_loop_iter(void) {}
-        EXPORT_SYMBOL_GPL(spectre_bhb_enable_mitigation);
-        EXPORT_SYMBOL_GPL(spectre_bhb_patch_loop_iter);
-        EOF
-    
-        echo 'obj-y += spectre_bhb_stub.o' >> arch/arm64/kernel/Makefile
 
-    - name: Build kernel
+        make O=$OUT_DIR olddefconfig
+
+    - name: Build kernel (Image.gz-dtb)
       run: |
         make -j$(nproc) O=$OUT_DIR \
           ARCH=arm64 \
           CC=clang \
-          CLANG_TRIPLE=aarch64-linux-gnu- \
+          LLVM=1 \
+          LLVM_IAS=1 \
           CROSS_COMPILE=aarch64-linux-gnu- \
-          CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          Image.gz-dtb
 
-    - name: Package artifacts
+    - name: Clone AnyKernel3
       run: |
-        mkdir -p artifacts
-        cp out/arch/arm64/boot/Image.gz artifacts/
-        cp out/.config artifacts/config
+        git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
+        rm -rf AnyKernel3/.git
 
-    - name: Upload kernel
+    - name: Prepare AnyKernel3
+      run: |
+        cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+
+        sed -i 's/do.devicecheck=1/do.devicecheck=0/' AnyKernel3/anykernel.sh
+        sed -i 's/block=.*/block=\/dev\/block\/bootdevice\/by-name\/boot;/' AnyKernel3/anykernel.sh
+
+    - name: Package AnyKernel3 zip
+      run: |
+        cd AnyKernel3
+        zip -r ../rosy-kernel-ksu.zip *
+        cd ..
+
+    - name: Upload kernel zip
       uses: actions/upload-artifact@v4
       with:
-        name: rosy-kernel-ksu-arm64
-        path: artifacts
+        name: rosy-kernel-ksu-anykernel3
+        path: rosy-kernel-ksu.zip
