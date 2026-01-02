@@ -86,8 +86,15 @@ jobs:
 
         grep -q spectre_bhb_stub arch/arm64/kernel/Makefile || \
           echo 'obj-y += spectre_bhb_stub.o' >> arch/arm64/kernel/Makefile
-
-    - name: Build kernel (Image.gz-dtb)
+          
+    - name: Fix kallsyms
+      run: |
+        scripts/config --file $OUT_DIR/.config \
+          --disable CONFIG_KALLSYMS_RELATIVE_BASE \
+          --disable CONFIG_KALLSYMS_ABSOLUTE_PERCPU
+        make O=$OUT_DIR olddefconfig
+        
+    - name: Build kernel 
       run: |
         make -j$(nproc) O=$OUT_DIR \
           ARCH=arm64 \
