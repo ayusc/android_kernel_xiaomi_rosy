@@ -86,13 +86,17 @@ jobs:
 
         grep -q spectre_bhb_stub arch/arm64/kernel/Makefile || \
           echo 'obj-y += spectre_bhb_stub.o' >> arch/arm64/kernel/Makefile
-          
+
     - name: Fix kallsyms
       run: |
         scripts/config --file $OUT_DIR/.config \
+          --disable CONFIG_KALLSYMS_BASE_RELATIVE \
           --disable CONFIG_KALLSYMS_RELATIVE_BASE \
           --disable CONFIG_KALLSYMS_ABSOLUTE_PERCPU
-        make O=$OUT_DIR olddefconfig
+          
+        sed -i 's/CONFIG_KALLSYMS_BASE_RELATIVE=y/# CONFIG_KALLSYMS_BASE_RELATIVE is not set/' $OUT_DIR/.config
+        sed -i 's/CONFIG_KALLSYMS_RELATIVE_BASE=y/# CONFIG_KALLSYMS_RELATIVE_BASE is not set/' $OUT_DIR/.config
+        make O=$OUT_DIR olddefconfig        
         
     - name: Build kernel 
       run: |
