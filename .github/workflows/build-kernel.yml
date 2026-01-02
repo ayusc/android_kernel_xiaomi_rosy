@@ -77,11 +77,12 @@ jobs:
           --enable CONFIG_SYSFS \
           --enable CONFIG_SECURITY_SELINUX
         make O=out olddefconfig
-    - name: Disable appended DTB image
+        
+    - name: Package artifacts
       run: |
-        scripts/config --file out/.config \
-        --disable CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE
-        make O=out olddefconfig
+        mkdir -p artifacts
+        cp out/arch/arm64/boot/Image.gz artifacts/
+        cp out/.config artifacts/config
         
     - name: Disable Spectre BHB mitigation
       run: |
