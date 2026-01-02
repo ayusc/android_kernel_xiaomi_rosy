@@ -67,6 +67,26 @@ jobs:
 
         make O=$OUT_DIR olddefconfig
 
+    - name: Disable Spectre BHB
+      run: |
+        scripts/config --file $OUT_DIR/.config \
+          --disable CONFIG_ARM64_SPECTRE_BHB
+        make O=$OUT_DIR olddefconfig
+       
+        cat << 'EOF' > arch/arm64/kernel/spectre_bhb_stub.c
+        // SPDX-License-Identifier: GPL-2.0
+        #include <linux/kernel.h>
+
+        void spectre_bhb_enable_mitigation(void) {}
+        void spectre_bhb_patch_loop_iter(void) {}
+
+        EXPORT_SYMBOL(spectre_bhb_enable_mitigation);
+        EXPORT_SYMBOL(spectre_bhb_patch_loop_iter);
+        EOF
+
+        grep -q spectre_bhb_stub arch/arm64/kernel/Makefile || \
+          echo 'obj-y += spectre_bhb_stub.o' >> arch/arm64/kernel/Makefile
+
     - name: Build kernel (Image.gz-dtb)
       run: |
         make -j$(nproc) O=$OUT_DIR \
