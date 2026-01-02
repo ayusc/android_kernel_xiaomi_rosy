@@ -78,12 +78,6 @@ jobs:
           --enable CONFIG_SECURITY_SELINUX
         make O=out olddefconfig
         
-    - name: Package artifacts
-      run: |
-        mkdir -p artifacts
-        cp out/arch/arm64/boot/Image.gz artifacts/
-        cp out/.config artifacts/config
-        
     - name: Disable Spectre BHB mitigation
       run: |
         scripts/config --file out/.config \
@@ -115,7 +109,7 @@ jobs:
     - name: Package artifacts
       run: |
         mkdir -p artifacts
-        cp out/arch/arm64/boot/Image.gz-dtb artifacts/ || true
+        cp out/arch/arm64/boot/Image.gz artifacts/
         cp out/.config artifacts/config
 
     - name: Upload kernel
